@@ -1,9 +1,37 @@
 ---
-- hosts: all
+- name: Update and upgrade apt packages
+  hosts: all
 
-  become: true
   tasks:
-    - name: update apt packages
-      apt:
-        upgrade: yes
-        update_cache: yes
+    - name: Update packages with apt
+      when: ansible_pkg_mgr == 'apt'
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Update packages with yum
+      when: ansible_pkg_mgr == 'yum'
+      ansible.builtin.yum:
+        name: '*'
+        state: latest # noqa: package-latest
+
+    - name: Upgrade packages with apt
+      when: ansible_pkg_mgr == 'apt'
+      ansible.builtin.apt:
+        upgrade: dist
+
+    - name: Upgrade packages with yum
+      when: ansible_pkg_mgr == 'yum'
+      ansible.builtin.yum:
+        name: '*'
+        state: latest # noqa: package-latest
+        exclude: kernel*
+
+    - name: Check if a reboot is required.
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+        get_checksum: no
+      register: reboot_required_file
+
+    - name: Reboot the server (if required).
+      ansible.builtin.reboot:
+      when: reboot_required_file.stat.exists == true
